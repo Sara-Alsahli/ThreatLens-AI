@@ -1,0 +1,142 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "ThreatLens AI",
+        "formDescription": "تحليل البيانات الامنيه",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "security Alert",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7eb8a4cd-1fe7-4216-8098-0ac0803a45f1",
+      "name": "On form submission",
+      "webhookId": "aeb7e516-e6f1-47db-8fa8-8c4c5395a912"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-5",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=IMPORTANT:\n\nReturn ONLY valid JSON.\nDo NOT return Markdown.\nDo NOT include explanations outside the JSON.\nDo NOT add notes, introductions, or conclusions.\n\nYou are an expert Cybersecurity Security Analyst AI working as part of the ThreatLens AI system.\n\nYour task is to analyze incoming Security Alerts and return a structured cybersecurity assessment.\n\nAnalyze the alert carefully and return ONLY a valid JSON object using the following schema:\n\n{\n  \"threat_type\": \"\",\n  \"severity\": \"\",\n  \"risk_score\": 0,\n  \"confidence\": 0,\n  \"reasoning\": \"\",\n  \"recommended_action\": \"\"\n}\n\nRules\n\n1. threat_type\n\nSelect the most appropriate threat category, such as:\n\n- Brute Force\n- Malware\n- Phishing\n- Port Scan\n- Unauthorized Access\n- Ransomware\n- Insider Threat\n- Suspicious PowerShell\n- Data Exfiltration\n- Benign Activity\n_Unknown\n\n2. severity\n\nChoose ONLY one value:\n\n- Critical\n- High\n- Medium\n- Low\n\nSeverity Guidelines\n\nCritical\n- Confirmed successful compromise of a sensitive system.\n- Successful unauthorized access.\n- Active ransomware execution.\n- Confirmed data exfiltration.\n\nHigh\n- Confirmed malicious activity that could lead to compromise if not stopped quickly.\n- Malware detected.\n- Phishing link clicked.\n- Suspicious PowerShell execution.\n\nMedium\n- Suspicious or repeated activity without evidence of successful compromise.\n- Multiple failed login attempts.\n- Port scanning.\n- Credential guessing.\n\nLow\n- Routine activity.\n- Expected internal behavior.\n- Low likelihood of malicious intent.\n\n3. risk_score\n\nReturn an integer between 0 and 100.\n\nUse these ranges:\n\n0–20   = Very Low Risk\n21–40  = Low Risk\n41–60  = Medium Risk\n61–80  = High Risk\n81–100 = Critical Risk\n\n4. confidence\n\nReturn an integer between 0 and 100 representing your confidence in the assessment.\n\nConfidence Guidelines\n\n90–100 = Very strong evidence\n70–89  = Strong evidence\n50–69  = Moderate evidence\n0–49   = Limited evidence\n\n5. reasoning\n\nExplain the reasoning in no more than two concise sentences.\n\nBase your reasoning only on the information available in the alert.\n\n6. recommended_action\n\nProvide the single best next action a cybersecurity analyst should take.\n\nInput Validation\n\n- If the input is empty, malformed, or unrelated to cybersecurity, return ONLY:\n\n{\n  \"error\": \"Invalid security alert input.\"\n}\n\n- If multiple alerts are provided, analyze ONLY the first alert.\n\nGeneral Instructions\n\n- Do not invent facts that are not supported by the alert.\n- If evidence is limited, use a lower confidence score.\n- Prefer conservative assessments over exaggerated conclusions.\n- Ensure all JSON fields are always present.\n- Return valid JSON only."
+            },
+            {
+              "content": "=Analyze the following security alert:\n{{ $json[\"security Alert\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "de6b22c9-1b7b-4c5e-8c53-560f6be6ed14",
+      "name": "Message a model",
+      "credentials": {
+        "anthropicApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content;\n\n// ابحث عن الجزء الذي نوعه text داخل رد Claude\nconst textItem = Array.isArray(content)\n  ? content.find(item => item.type === \"text\")\n  : null;\n\nif (!textItem || !textItem.text) {\n  return [\n    {\n      json: {\n        error: \"No response received from Claude\"\n      }\n    }\n  ];\n}\n\n// تنظيف الرد في حال Claude أضاف ```json\nconst rawText = textItem.text\n  .replace(/```json/gi, \"\")\n  .replace(/```/g, \"\")\n  .trim();\n\ntry {\n  const parsed = JSON.parse(rawText);\n\n  return [\n    {\n      json: parsed\n    }\n  ];\n} catch (error) {\n  return [\n    {\n      json: {\n        error: \"Invalid JSON returned from Claude\",\n        raw: rawText\n      }\n    }\n  ];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        16
+      ],
+      "id": "56428b4c-5e1c-4bfd-b629-76d03d275f52",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "ThreatLens AI Analysis",
+        "completionMessage": "=Threat Analysis Completed ✅\n\nThreat Type:\n{{ $json[\"threat_type\"] }}\n\nSeverity:\n{{ $json[\"severity\"] }}\n\nRisk Score:\n{{ $json[\"risk_score\"] }}/100\n\nConfidence:\n{{ $json[\"confidence\"] }}%\n\nReasoning:\n{{ $json[\"reasoning\"] }}\n\nRecommended Action:\n{{ $json[\"recommended_action\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        736,
+        16
+      ],
+      "id": "6d8bf475-718f-4f04-8663-ccda21ed78c5",
+      "name": "Form",
+      "webhookId": "51d6fa8b-1166-4291-9234-323bacd1a499"
+    }
+  ],
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
